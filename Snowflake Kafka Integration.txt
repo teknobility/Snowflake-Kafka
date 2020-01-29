@@ -1,0 +1,68 @@
+--Download Snowflake connector
+--Download two encryption jars from bouncy
+--Copy snowflake connector usig the following
+docker cp Downloads/snowflake-kafka-connector-1.1.0.jar shams-kafka:/kafka/libs
+
+--Copy encryption jars using the following commands
+docker cp Downloads/bc-fips-1.0.1.jar shams-kafka:/kafka/libs
+docker cp Downloads/bcpkix-fips-1.0.3.jar  shams-kafka:/kafka/libs
+
+--Generate a private key ***Remember the paraphrase***
+openssl genrsa 2048 | openssl pkcs8 -topk8 -v2 aes256 -inform PEM -out rsa_key.p8
+--Generate a public key
+openssl rsa -in rsa_key.p8 -pubout -out rsa_key.pub
+
+--Enter the container using the following:
+docker exec -it shams-kafka bash
+--Inside the container:
+----Edit/Create a file called connect-standalone.properties in config folder
+vi config/connect-standalone.properties
+######Content starts here ###########
+name=shams_kafka_snowflake_connect
+connector.class=com.snowflake.kafka.connector.SnowflakeSinkConnector
+tasks.max=8
+topics=dbserver1.MDM.CUSTOMER,dbserver1.MDM.products_on_hand
+#snowflake.topic2table.map= dbserver1.MDM.CUSTOMER:DEMO_DB.INVENTORY.CUSTOMER,dbserver1.MDM.products_on_hand:DEMO_DB.INVENTORY.PRODUCTS
+buffer.count.records=10000
+buffer.flush.time=60
+buffer.size.bytes=5000000
+snowflake.url.name=er34878.east-us-2.azure.snowflakecomputing.com:443
+snowflake.user.name=kafka_connector_user_1
+snowflake.private.key=MIIFLTBXBgkqhkiG9w0BBQ0wSjApBgkqhkiG9w0BBQwwHAQIhkvIL5CNhasCAggAMAwGCCqGSIb3DQIJBQAwHQYJYIZIAWUDBAEqBBA48DGKkKIAZTpTD7RZl4y3BIIE0GyqDglF6PCrJQKnMqmSJjiIOGOj9FGa4hsoWf6lK8opsz7Bxf6FLpgHjOogaMK+DYgAbpZejb2gDSNijuKBgJ9slukdbQWA8ZpdqYZX8S+o1Q8UL1Mql8YdvX++pBm+F3FP4CAPE2xlZ1Dn/IVFtTpq9o+l8oUSHe4qlpf9eec5qs4ys5uprNLQ3fFfPwXQtbRcCjtv9IBqYvcKUUu/Amr3R0g3t2uwpvsJ3oOlAv+8kPqS2P18texGPvvqLWVrKXGdcEi1mXMME60AQAKuZ7gWAVaTqB8QEhXufyrQ6YVsglXO0yH7XILyxZni+y32CSlpKclLj97lGGh96/onSdKv4f5chAFzEkkBlOx/tspFeMDcqgys7Hk86r172+jo147jzKmS2BSq503GT83LrC5fFX8t5Q0kCq7OQ/FLGjV8TmBehYWxbfPQobJeqzkxSfqMBhBFut2N1gxSH69Xw+H9Bypz0tXc8Dh90GsA/1SmuJIuhR6Wadv35aUjkdDaFKj7rWC4zkSlUZqocdMnazhKazPSVtBZsHELMmh6Ab3RDszcOD23uCVK9l+eztBM3/cdkGnkqhRxm+II8kEroOa5Fu8o6dOndUlUe17tUklS20/2LYzmcNRph/ZlajHB89q+mI2GVhP3p/UYnevXh/qkudmpU2ngn7OMFfffRbt2D2UlDpX70Id1+enON5R1sUGIyPYXtrTwypcYzXp2+fsbuW5bSdOQT3yGiBep4L/+hFkxmScrnAJgFxmqF2fVL1vgY2GZ+1lGiCh8yWvdu3Nyhzb1OzmDjDCM6s8KbRlhG0Leq/YBSa/KUol5es+Xv6xg0i4bIar4TIayKBC7B/57FzjXGddChVnPfCLba75e+8t5Bhigu70J8fQ/CxIxa7TVSmB+cldRP9kaiqGVjM3297crctyP082jtbR9/xQTMsHRpTP8/J/l5g3PLmqFaHMktJYyvFp5Sg1bh0lMkjHumzQ4FNn0uAYZH16JXJhFS5pPsHPlRAhqTicjPd4fyBgTDc0InbmHqD0YaHFFGl/5NzXCbqJArinZBAPt7MgvT/5PAoOGDxadtmf1CZ3XBbUn/sil/RzkqCUyIcwrjMBput8rTlGl01NLmTiNTMRn9zB8BICQ3K44lhL4B/R4F515sBeCPGtanjnF+gcXgEuYrc+znN7+Mvy2lj687wtZ6rKQbJHP6v8fIxWp1zuhQ6BfUqiFmxvwHgxferTIuXKlFVb6fv/X1ncdYLY6Lx61vCfGDuQjHl2hXvZ2XtDv/19n1eJtegoEN7O3B+j09VpbWftmEIyh7snHYFdfRB1Vach4cViwVoE+N8DP1AK2oY1WaBZpbV7BBKUIrvG2ngz+0QxgFC/hzDwl1pG482aMHlrHVWlqFp4V9OAz8MRd6F7JuNdij5fvB++29Klm1xFT3rjIx14kry9Up8gAdWsDuFdv4g45v2Y9JcwYgPjanww844jdxb8+1Lm8oULxUP0aVogLDHELfXAWAvrZtiCwPWB5/kSsNmbxHI4TFcKTWkFFm1pTKIu+rgTJcbrlsFj9Zj5dNKbruK6ccb9oP1YIRkkHjyzhAoDIOLcNAbqqOqvFjiVdCG42KCBArhaCAyPXnmGEz0YZyRvuIeAp/jAE
+snowflake.private.key.passphrase=***Paraphrase used to create the private key***
+snowflake.database.name=DEMO_DB
+snowflake.schema.name=INVENTORY
+key.converter=org.apache.kafka.connect.storage.StringConverter
+value.converter=com.snowflake.kafka.connector.records.SnowflakeJsonConverter
+key.converter.schemas.enable=true
+value.converter.schemas.enable=true
+offset.storage.file.filename=/tmp/connect.offsets
+# Flush much faster than normal, which is useful for testing/debugging
+offset.flush.interval.ms=10000
+#######Content ends here##########################################
+----Edit/Create a file called worker.properties in config folder
+vi config/worker.properties
+######Content starts here ########################################
+bootstrap.servers=shams-kafka:9092
+
+key.converter=org.apache.kafka.connect.storage.StringConverter
+value.converter=com.snowflake.kafka.connector.records.SnowflakeJsonConverter
+
+internal.key.converter=org.apache.kafka.connect.json.JsonConverter
+internal.value.converter=org.apache.kafka.connect.json.JsonConverter
+internal.key.converter.schemas.enable=true
+internal.value.converter.schemas.enable=true
+
+offset.storage.file.filename=/tmp/connect.offsets
+
+offset.flush.interval.ms=5000
+offset.flush.timeout.ms=60000
+
+consumer.metadata.max.age.ms=10000
+######Content ends here#################################################
+----call sh file to run
+/bin/connect-standalone.sh /config/worker.properties /config/connect-standalone.properties
+
+
+------Reference---
+https://docs.snowflake.net/manuals/user-guide/kafka-connector-install.html#installation-prerequisites

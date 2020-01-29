@@ -1,0 +1,62 @@
+--Create a docker-compose.yml file
+vi docker-compose.yml
+#####Content starts here#####
+version: "3"
+services:
+  connect:
+    container_name: shams-conect
+    environment:
+      - "BOOTSTRAP_SERVERS=kafka:9092"
+      - GROUP_ID=1
+      - CONFIG_STORAGE_TOPIC=my_connect_configs
+      - OFFSET_STORAGE_TOPIC=my_connect_offsets
+      - STATUS_STORAGE_TOPIC=my_connect_statuses
+    image: "debezium/connect:latest"
+    links:
+      - "kafka:kafka"
+      - "postgres:postgres"
+      - "zookeeper:zookeeper"
+    ports:
+      - "8083:8083"
+    volumes:
+      - "connect_data:/path/to/folder/on/host"
+  kafka:
+    container_name: shams-kafka
+    environment:
+      - "ZOOKEEPER_CONNECT=zookeeper:2181"
+    image: "debezium/kafka:latest"
+    links:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    volumes:
+      - "kafka_data:/path/to/folder/on/host"
+  postgres:
+    container_name: shams-postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    image: "debezium/example-postgres:latest"
+    ports:
+      - "5432:5432"
+    volumes:
+      - "postgres_data:/var/lib/postgresql/data"
+  zookeeper:
+    container_name: shams-zookeeper
+    image: "debezium/zookeeper:latest"
+    ports:
+      - "2181:2181"
+      - "2888:2888"
+      - "3888:3888"
+    volumes:
+      - "zookeeper_data:/path/to/folder/on/host"
+volumes:
+  connect_data:
+  debezium_data:
+  kafka_data:
+  postgres_data:
+  zookeeper_data:
+  
+##### Content ends here #####
+--Run the following cofiguration command
+curl -X POST -H "Accept:application/json" -H "Content-Type:application/json" localhost:8083/connectors/ -d '{ "name": "inventory-connector", "config": { "connector.class": "io.debezium.connector.postgresql.PostgresConnector", "tasks.max": "1", "database.hostname": "postgres", "database.port": "5432", "database.user": "postgres", "database.password": "postgres", "database.dbname" : "inventory", "database.server.name": "dbserver1", "database.whitelist": "inventory", "database.history.kafka.bootstrap.servers": "kafka:9092","database.history.kafka.topic": "schema-changes.inventory" }}'
