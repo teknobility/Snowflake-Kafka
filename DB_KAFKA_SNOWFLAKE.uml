@@ -1,0 +1,74 @@
+@startuml
+title Event Streaming from Database to Snowflake
+
+entity "TSYS" as customerSource
+database "Customer Database for Cards" as onPremiseDB
+participant "CDC Reader (Debezium)" as debeziumReader
+entity "Event Streaming (Kafka)" as customerTopic
+participant "KSQL" as KSQL
+participant "Snowflake Connector" as SnowflakeConnector
+database "Snowflake" as snowflakeDatabase
+entity "Offers load" as realTimeApplication
+
+group#PaleGreen Feature 1 - Customer information flow from TSYS to event manager and data warehouse
+  group#LightYellow Scenario 1.1 - Customer information is stored in an on-premise database
+    activate onPremiseDB #SkyBlue
+    activate debeziumReader #SkyBlue
+    activate customerTopic #SkyBlue
+    activate SnowflakeConnector #SkyBlue
+    activate customerSource #SkyBlue
+    customerSource -> onPremiseDB: Data load (basic CRUD operations)
+    deactivate customerSource
+    onPremiseDB <- debeziumReader: Data Read from CDC
+    debeziumReader -> customerTopic: Kafka Connect (crude data)
+    customerTopic <- SnowflakeConnector: Kafka Connect (crude data)
+    activate snowflakeDatabase #SkyBlue
+    SnowflakeConnector -> snowflakeDatabase: batched Snowpipe calls
+    deactivate snowflakeDatabase
+    deactivate customerSource
+  end
+  group#LightYellow Scenario 1.2 - In addition to above Kafka acts as a single source of truth
+    activate KSQL #SkyBlue
+    customerTopic -> customerTopic: clean data stored in another topic
+    activate realTimeApplication #SkyBlue
+    customerTopic <- realTimeApplication: synchronous call (clean customer topic)
+    deactivate realTimeApplication
+  end
+end
+
+legend left
+  =Features
+  ==Feature 1: Customer information flow from TSYS to event manager and data warehouse
+  ===Scenario 1.1: Customer information is stored in an on-premise database
+  As a bank
+  I want to have an automated flow of customer data into my warehouse
+  So that I can run consolidated reports
+  And hence provide better products to the customers
+
+  =Narrative
+  ==Assumptions
+  *Customer data from vendor already lands into some databases
+  *The Customer Database for Cards supports CDC
+
+  ==Description
+  *Customer information lands into one or more in-house databases
+  *Debezium handles Change Data Capture (CDC) on all of these databases
+  *Debezium loads this information into Kafka Customer topic whenever an operation is performed on customer records in any of these databases
+  *Kafka keeps track of all the messages that came in
+  *Snowflake Connector listens to these messages, creates a small batch file and then copies that into Snowflake using temporary stage and snowpipe.
+===Scenario 1.2: In addition to above Kafka acts as a single source of truth
+As a bank
+I want to have a single source of truth for customer records
+So that I can identify my customer
+And have the latest information about them
+
+=Narrative
+==Assumptions
+*Customer data from vendor already lands into some databases
+*The Customer Database for Cards supports CDC
+
+==Description
+*In addition to the scenario 1.1, we can use Kafka to act as a single source of truth
+
+end legend
+@enduml
