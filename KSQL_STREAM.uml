@@ -1,0 +1,59 @@
+@startuml
+title Establishing Single Source of Truth for Customer Information using KSQL
+
+database "Customer Database" as customerDB
+database "Account Database" as accountsDB
+participant "CDC Reader (Debezium)" as debeziumReader
+box "Kafka"
+  entity "Customer" as customerTopic
+  entity "Accounts" as accountsTopic
+  entity "Customer Table/Stream" as customerFlattened
+  entity "Account Table/Stream" as accountsFlattened
+  entity "Customer Account Relationship" as custAcctRelTopic
+end box
+participant "Online Banking" as consumer1
+group#PaleGreen #transparent Feature 1 - Customer information flow from databases to a Kafka stream with enriched data
+  group#LightYellow #transparent Scenario 1.1 - Customer and account information stored in different DBs are joined together in a topic producing customer account relationship
+    loop
+      activate debeziumReader #SkyBlue
+      customerDB -> debeziumReader: Data Read from CDC
+      accountsDB -> debeziumReader: Data Read from CDC
+      debeziumReader ->> customerTopic: Kafka Connect (customer)
+      debeziumReader ->> accountsTopic: Kafka Connect (account)
+      deactivate debeziumReader
+      loop KSQL
+        customerTopic ->> customerFlattened: Parse json object from CDC to flat stream
+        accountsTopic ->> accountsFlattened: Parse json object from CDC to flat stream
+        customerFlattened -> custAcctRelTopic: join with "Account Stream" to get a relationship
+        accountsFlattened -> custAcctRelTopic: join with "Customer Stream" to get a relationship
+      end loop
+    end loop
+    activate consumer1
+    custAcctRelTopic -> consumer1++ #SkyBlue: APIs to pull customer account Relationship
+    deactivate consumer1
+  end
+end
+legend left
+  =Features
+  ==Feature 1: Customer information flow from databases to a Kafka stream with enriched data
+  ===Scenario 1.1: Customer and account information stored in different DBs are joined
+  ===together in a topic producing customer account relationship
+
+  As a bank
+  I want to have a single source of truth for my customer data
+  So that I can maintain and report better on my customer
+  And I have the latest information about them
+
+  =Narrative
+  ==Assumptions
+  *Customer and account data is present in separate database/tables and is maintained on an ongoing basis
+  *The Customer and account Database supports CDC
+
+  ==Description
+  *The customer database holds customer information and the account database holds account information.
+  *When there is a change in these databases, CDC is used to write to topics in Kafka
+  *These topics are refined to ultimately produce a "Customer Account Relationship" Stream
+  *This stream cab be subscribed to by banking systems (online banking in this case)
+
+end legend
+@enduml
